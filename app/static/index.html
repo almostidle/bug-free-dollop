@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Detect plagiarism and AI-generated content in text submissions">
+    <title>Plagiarism &amp; AI Content Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg: #0b0f1a;
+            --surface: #131825;
+            --surface-hover: #1a2035;
+            --border: #1e2a42;
+            --text: #e2e8f0;
+            --text-muted: #8892a6;
+            --accent: #6c5ce7;
+            --accent-glow: rgba(108, 92, 231, 0.25);
+            --green: #00d2a0;
+            --green-dim: rgba(0, 210, 160, 0.15);
+            --red: #ff6b6b;
+            --red-dim: rgba(255, 107, 107, 0.15);
+            --yellow: #ffd43b;
+            --yellow-dim: rgba(255, 212, 59, 0.15);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent) 0%, #a29bfe 50%, var(--green) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            margin-bottom: 24px;
+            transition: border-color 0.2s;
+        }
+
+        .card:hover { border-color: rgba(108, 92, 231, 0.3); }
+
+        .card h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2 .icon {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 180px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            padding: 16px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            resize: vertical;
+            transition: border-color 0.2s;
+            outline: none;
+        }
+
+        textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+        textarea::placeholder { color: var(--text-muted); }
+
+        .input-row {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+
+        .file-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            background: var(--surface-hover);
+            border: 1px dashed var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .file-label:hover { border-color: var(--accent); color: var(--text); }
+        .file-label input { display: none; }
+        .file-name { color: var(--green); font-weight: 500; }
+
+        .btn {
+            padding: 10px 28px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), #8b7cf7);
+            color: #fff;
+            margin-left: auto;
+        }
+
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px var(--accent-glow); }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .spinner {
+            display: none;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        #results { display: none; }
+
+        .score-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .score-low { background: var(--green-dim); color: var(--green); }
+        .score-mid { background: var(--yellow-dim); color: var(--yellow); }
+        .score-high { background: var(--red-dim); color: var(--red); }
+
+        .score-bar-container {
+            width: 100%;
+            height: 6px;
+            background: var(--bg);
+            border-radius: 3px;
+            margin: 12px 0 8px;
+            overflow: hidden;
+        }
+
+        .score-bar {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.8s ease;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+
+        .result-header h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        @media (max-width: 600px) { .metrics-grid { grid-template-columns: 1fr; } }
+
+        .metric-card {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+        }
+
+        .metric-card .metric-name {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .metric-card .metric-score {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .metric-card .metric-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .match-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            margin-top: 12px;
+        }
+
+        .match-item .match-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+
+        .match-scores {
+            display: flex;
+            gap: 16px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .match-scores span { color: var(--text); font-weight: 500; }
+
+        .passage {
+            background: rgba(255, 107, 107, 0.08);
+            border-left: 3px solid var(--red);
+            padding: 8px 12px;
+            margin-top: 8px;
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .history-table th {
+            text-align: left;
+            padding: 10px 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .history-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .history-table tr:hover td { background: var(--surface-hover); }
+
+        .history-table .clickable { cursor: pointer; color: var(--accent); }
+        .history-table .clickable:hover { text-decoration: underline; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .error-toast {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            background: var(--red-dim);
+            border: 1px solid var(--red);
+            color: var(--red);
+            padding: 12px 20px;
+            border-radius: var(--radius-sm);
+            font-size: 0.85rem;
+            z-index: 100;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 24px;
+            background: var(--bg);
+            border-radius: var(--radius-sm);
+            padding: 4px;
+            border: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--surface);
+            color: var(--text);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ Plagiarism &amp; AI Detector</h1>
+            <p>Submit text to check for plagiarism against stored documents and detect AI-generated content</p>
+        </header>
+
+        <div class="card" id="input-card">
+            <h2><span class="icon" style="background: var(--accent-glow);">📝</span> Submit Text</h2>
+            <textarea id="text-input" placeholder="Paste your text here for analysis..."></textarea>
+            <div class="input-row">
+                <label class="file-label">
+                    📎 Upload .txt
+                    <input type="file" id="file-input" accept=".txt">
+                </label>
+                <span id="file-name-display"></span>
+                <button class="btn btn-primary" id="analyze-btn" onclick="submitAnalysis()">
+                    <span class="spinner" id="spinner"></span>
+                    Analyze
+                </button>
+            </div>
+        </div>
+
+        <div id="results">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('plagiarism')">Plagiarism</button>
+                <button class="tab-btn" onclick="switchTab('ai')">AI Detection</button>
+            </div>
+
+            <div id="tab-plagiarism" class="tab-content active">
+                <div class="card">
+                    <div class="result-header">
+                        <h3>Plagiarism Analysis</h3>
+                        <span id="plag-badge" class="score-badge"></span>
+                    </div>
+                    <div class="score-bar-container">
+                        <div id="plag-bar" class="score-bar"></div>
+                    </div>
+                    <div id="plag-matches"></div>
+                </div>
+            </div>
+
+            <div id="tab-ai" class="tab-content">
+                <div class="card">
+                    <div class="result-header">
+                        <h3>AI Content Detection</h3>
+                        <span id="ai-badge" class="score-badge"></span>
+                    </div>
+                    <div class="score-bar-container">
+                        <div id="ai-bar" class="score-bar"></div>
+                    </div>
+                    <div id="ai-metrics" class="metrics-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card" id="history-card">
+            <h2><span class="icon" style="background: var(--green-dim);">📋</span> History</h2>
+            <div id="history-content">
+                <div class="empty-state">No submissions yet</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = '';
+
+        document.getElementById('file-input').addEventListener('change', function() {
+            const display = document.getElementById('file-name-display');
+            if (this.files.length) {
+                display.innerHTML = '<span class="file-name">' + this.files[0].name + '</span>';
+            } else {
+                display.innerHTML = '';
+            }
+        });
+
+        loadHistory();
+
+        async function submitAnalysis() {
+            const textInput = document.getElementById('text-input');
+            const fileInput = document.getElementById('file-input');
+            const btn = document.getElementById('analyze-btn');
+            const spinner = document.getElementById('spinner');
+
+            const text = textInput.value.trim();
+            const file = fileInput.files[0];
+
+            if (!text && !file) {
+                showError('Please paste some text or upload a .txt file');
+                return;
+            }
+
+            btn.disabled = true;
+            spinner.style.display = 'inline-block';
+
+            const form = new FormData();
+            if (file) {
+                form.append('file', file);
+            }
+            if (text) {
+                form.append('text', text);
+            }
+
+            try {
+                const res = await fetch(API + '/api/documents/analyze', { method: 'POST', body: form });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Analysis failed');
+                showResults(data);
+                loadHistory();
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                btn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        }
+
+        function showResults(data) {
+            document.getElementById('results').style.display = 'block';
+
+            const plagScore = data.plagiarism.overall_score;
+            renderScore('plag', plagScore, data.plagiarism.is_plagiarized);
+
+            const matchesDiv = document.getElementById('plag-matches');
+            if (data.plagiarism.matches.length === 0) {
+                matchesDiv.innerHTML = '<div class="empty-state">No matches found in stored documents</div>';
+            } else {
+                matchesDiv.innerHTML = data.plagiarism.matches.map(m => `
+                    <div class="match-item">
+                        <div class="match-title">${escapeHtml(m.document_title)} (ID: ${m.document_id})</div>
+                        <div class="match-scores">
+                            Jaccard: <span>${(m.jaccard_score * 100).toFixed(1)}%</span> &nbsp;|&nbsp;
+                            Cosine: <span>${(m.cosine_score * 100).toFixed(1)}%</span> &nbsp;|&nbsp;
+                            Combined: <span>${(m.combined_score * 100).toFixed(1)}%</span>
+                        </div>
+                        ${m.matched_passages.slice(0, 5).map(p => `<div class="passage">"${escapeHtml(p)}"</div>`).join('')}
+                    </div>
+                `).join('');
+            }
+
+            const aiScore = data.ai_detection.overall_score;
+            renderScore('ai', aiScore, data.ai_detection.is_ai_generated);
+
+            const metricsDiv = document.getElementById('ai-metrics');
+            metricsDiv.innerHTML = Object.entries(data.ai_detection.metrics).map(([key, m]) => `
+                <div class="metric-card">
+                    <div class="metric-name">${formatMetricName(key)}</div>
+                    <div class="metric-score" style="color: ${scoreColor(m.score)}">${(m.score * 100).toFixed(0)}%</div>
+                    <div class="metric-desc">${escapeHtml(m.description)}</div>
+                </div>
+            `).join('');
+
+            switchTab('plagiarism');
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderScore(prefix, score, flagged) {
+            const pct = (score * 100).toFixed(1);
+            const badge = document.getElementById(prefix + '-badge');
+            const bar = document.getElementById(prefix + '-bar');
+            const cls = score < 0.3 ? 'score-low' : score < 0.6 ? 'score-mid' : 'score-high';
+            const color = score < 0.3 ? 'var(--green)' : score < 0.6 ? 'var(--yellow)' : 'var(--red)';
+
+            badge.className = 'score-badge ' + cls;
+            badge.textContent = pct + '% ' + (flagged ? '⚠️ Flagged' : '✓ Clean');
+            bar.style.width = pct + '%';
+            bar.style.background = `linear-gradient(90deg, ${color}, ${color}dd)`;
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach((b, i) => {
+                b.classList.toggle('active', (tab === 'plagiarism' && i === 0) || (tab === 'ai' && i === 1));
+            });
+            document.getElementById('tab-plagiarism').classList.toggle('active', tab === 'plagiarism');
+            document.getElementById('tab-ai').classList.toggle('active', tab === 'ai');
+        }
+
+        async function loadHistory() {
+            try {
+                const res = await fetch(API + '/api/documents/history?limit=20');
+                if (!res.ok) return;
+                const docs = await res.json();
+                const container = document.getElementById('history-content');
+
+                if (docs.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No submissions yet</div>';
+                    return;
+                }
+
+                container.innerHTML = `
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Title</th>
+                                <th>Plagiarism</th>
+                                <th>AI Score</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${docs.map(d => `
+                                <tr>
+                                    <td class="clickable" onclick="viewDocument(${d.id})">#${d.id}</td>
+                                    <td>${escapeHtml(d.title)}</td>
+                                    <td>${formatScoreCell(d.plagiarism_score)}</td>
+                                    <td>${formatScoreCell(d.ai_score)}</td>
+                                    <td style="color: var(--text-muted)">${new Date(d.created_at).toLocaleDateString()}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } catch (_) {}
+        }
+
+        async function viewDocument(id) {
+            try {
+                const res = await fetch(API + '/api/documents/' + id);
+                if (!res.ok) return;
+                const doc = await res.json();
+                if (doc.results) {
+                    showResults({
+                        plagiarism: doc.results.plagiarism,
+                        ai_detection: doc.results.ai_detection,
+                    });
+                }
+            } catch (_) {}
+        }
+
+        function formatScoreCell(score) {
+            if (score === null || score === undefined) return '<span style="color:var(--text-muted)">—</span>';
+            const pct = (score * 100).toFixed(1) + '%';
+            const color = score < 0.3 ? 'var(--green)' : score < 0.6 ? 'var(--yellow)' : 'var(--red)';
+            return `<span style="color:${color}; font-weight:600">${pct}</span>`;
+        }
+
+        function formatMetricName(key) {
+            return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+
+        function scoreColor(s) {
+            return s < 0.3 ? 'var(--green)' : s < 0.6 ? 'var(--yellow)' : 'var(--red)';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showError(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'error-toast';
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 4000);
+        }
+    </script>
+</body>
+</html>
