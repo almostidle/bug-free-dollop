@@ -73,7 +73,10 @@ def check_plagiarism(text: str, current_doc_id: int | None, db: Session) -> dict
         j_score = jaccard_similarity(shingles, doc_shingles)
         combined = (jaccard_weight * j_score) + (tfidf_weight * c_score)
 
-        if combined > 0.01:
+        if combined > best_score:
+            best_score = combined
+
+        if combined >= 0.06:
             intervals = find_matched_intervals(words, doc_words, shingle_size)
             for w_start, w_end in intervals:
                 covered_word_indices.update(range(w_start, w_end))
@@ -102,8 +105,6 @@ def check_plagiarism(text: str, current_doc_id: int | None, db: Session) -> dict
                 "matched_passages": passages[:10],
                 "highlight_spans": doc_highlights[:20],
             })
-            if combined > best_score:
-                best_score = combined
 
     matches.sort(key=lambda m: m["combined_score"], reverse=True)
     coverage_ratio = round(len(covered_word_indices) / len(words), 4) if words else 0.0

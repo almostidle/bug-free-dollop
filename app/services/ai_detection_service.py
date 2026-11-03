@@ -97,7 +97,7 @@ def _extract_words(text: str) -> list[str]:
 
 def _split_sentences(text: str) -> list[str]:
     protected = _MULTI_ABBREV_PATTERN.sub(lambda m: m.group(0).replace(".", "\x00"), text)
-    protected = _ABBREV_PATTERN.sub(r"\1\x00", protected)
+    protected = _ABBREV_PATTERN.sub(lambda m: m.group(1) + "\x00", protected)
     protected = _DECIMAL_PATTERN.sub("\x00", protected)
     parts = re.split(r"[.!?]+(?:\s+|$)", protected)
     restored = [p.replace("\x00", ".").strip() for p in parts]
@@ -134,7 +134,7 @@ def _lexical_diversity(words: list[str], window_size: int = 50) -> tuple[float, 
         ]
         mattr = sum(windows) / len(windows)
     # Lower MATTR = more repetitive local vocabulary = more AI-like
-    score = max(0.0, min(1.0, (0.80 - mattr) / 0.30))
+    score = max(0.0, min(1.0, (0.93 - mattr) / 0.18))
     return score, mattr
 
 
